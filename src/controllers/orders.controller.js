@@ -1,18 +1,17 @@
-import { db } from "../database/database.connection.js";
+import orderRepository from "../repositories/orders.repository.js";
 
-
+// Função Testada e Finalizada.
 export async function createOrder(req, res) {
     const { clientId, cakeId, quantity, totalPrice } = req.body;
 
     try {
-
-        
-        const clientExists = await db.query(`SELECT * FROM clients WHERE id=$1`, [clientId])
-        if (clientExists.rows.length <= 0) {
+        const clientExists = await orderRepository.verifyClient(req.body)
+        console.log(clientExists.rows);
+        if (clientExists.rowCount <= 0) {
             return res.status(404).send("The customer does not exist");
         }
-        const cakeExists = await db.query(`SELECT * FROM cakes WHERE id=$1`, [cakeId])
-        if (cakeExists.rows.length <= 0) {
+        const cakeExists = await orderRepository.verifyCake(req.body)
+        if (cakeExists.rowCount <= 0) {
             return res.status(404).send("The cake does not exist");
         }
         // Validar se quantity é um número inteiro entre 1 e 4
@@ -33,55 +32,20 @@ export async function createOrder(req, res) {
         }
 
         // Aqui você pode inserir as informações da nova order no banco de dados
-        await db.query(`INSERT INTO orders ("clientId", "cakeId", quantity, "totalPrice") VALUES ($1, $2, $3, $4)`, [clientId, cakeId, quantity, totalPrice]);
-        /* res.sendStatus(201); */
-        const orders = await db.query(`SELECT * FROM orders`)
-        const formattedOrders = orders.rows.map(order => {
-            return {
-                id: order.id,
-                clientId: order.clientId,
-                cakeId: order.cakeId,
-                quantity: order.quantity,
-                totalPrice: order.totalPrice,
-                createdAt: order.createdAt.toISOString().substr(0, 10) // Formatar a data
-            };
-        });
-        res.status(201).json(formattedOrders);
+        await orderRepository.insertOrder(clientId, cakeId, quantity, totalPrice)
+        res.sendStatus(201);
 
     } catch (err) {
         res.status(500).send(err.message);
     }
 }
-
+// Função Testada e Finalizada.
 export async function getOrders(req, res) {
+
+    const { date } = req.query;
+
     try {
-        let query = `
-            SELECT
-                orders.id AS "orderId",
-                orders."createdAt",
-                orders.quantity,
-                orders."totalPrice",
-                clients.id AS "clientId",
-                clients.name AS "clientName",
-                clients.address AS "clientAddress",
-                clients.phone AS "clientPhone",
-                cakes.id AS "cakeId",
-                cakes.name AS "cakeName",
-                cakes.price AS "cakePrice",
-                cakes.description AS "cakeDescription",
-                cakes.image AS "cakeImage"
-            FROM
-                orders
-                JOIN clients ON orders."clientId" = clients.id
-                JOIN cakes ON orders."cakeId" = cakes.id
-        `;
-
-        const { date } = req.query;
-        if (date) {
-            query += ` WHERE DATE(orders."createdAt") = $1`;
-        }
-
-        const orders = await db.query(query, [date]);
+        const orders = await orderRepository.joinData(date)
 
         if (orders.rows.length === 0) {
             return res.status(404).send([]);
@@ -115,41 +79,17 @@ export async function getOrders(req, res) {
         res.status(500).send(err.message);
     }
 }
-
+// Função Testada e Finalizada.
 export async function getOrderById(req, res) {
 
     const orderId = req.params.id; // Obtém o id do pedido da URL
 
     try {
-        const query = `
-            SELECT
-                orders.id AS "orderId",
-                orders."createdAt",
-                orders.quantity,
-                orders."totalPrice",
-                clients.id AS "clientId",
-                clients.name AS "clientName",
-                clients.address AS "clientAddress",
-                clients.phone AS "clientPhone",
-                cakes.id AS "cakeId",
-                cakes.name AS "cakeName",
-                cakes.price AS "cakePrice",
-                cakes.description AS "cakeDescription",
-                cakes.image AS "cakeImage"
-            FROM
-                orders
-                JOIN clients ON orders."clientId" = clients.id
-                JOIN cakes ON orders."cakeId" = cakes.id
-            WHERE
-                orders.id = $1
-        `;
-
-        const result = await db.query(query, [orderId]);
-
-        if (result.rows.length === 0) {
+        const result = await orderRepository.joinDataById(orderId)
+        console.log(result.rowCount)
+        if (result.rowCount === 0) {
             return res.status(404).send("Order not found");
         }
-
         const order = result.rows[0];
 
         const formattedOrder = {
@@ -178,35 +118,21 @@ export async function getOrderById(req, res) {
         res.status(500).send(err.message);
     }
 }
-
+// Função Testada e Finalizada.
 export async function ordersByClient(req, res) {
 
     const clientId = req.params.id; // Obtém o id do cliente da URL
 
     try {
-        const clientExists = await db.query(`SELECT * FROM clients WHERE id = $1`, [clientId]);
+        const clientExists = await orderRepository.verifyClient(clientId);
 
-        if (clientExists.rows.length === 0) {
+        console.log(clientExists.rowCount)
+        if (clientExists.rowCount <= 0) {
             return res.status(404).send("Client not found");
         }
+        const orders = await orderRepository.joinDataByClient(clientId)
 
-        const query = `
-            SELECT
-                orders.id AS "orderId",
-                orders.quantity,
-                orders."createdAt",
-                orders."totalPrice",
-                cakes.name AS "cakeName"
-            FROM
-                orders
-                JOIN cakes ON orders."cakeId" = cakes.id
-            WHERE
-                orders."clientId" = $1
-        `;
-
-        const orders = await db.query(query, [clientId]);
-
-        if (orders.rows.length === 0) {
+        if (orders.rowCount === 0) {
             return res.status(200).send("No orders registered for this client");
         }
 
@@ -226,5 +152,3 @@ export async function ordersByClient(req, res) {
         res.status(500).send(err.message);
     }
 }
-
-
