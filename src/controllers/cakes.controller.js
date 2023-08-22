@@ -1,6 +1,5 @@
 import { db } from "../database/database.connection.js";
 
-
 // Função Testada e Finalizada.
 export async function postCakes(req, res) {
 
