@@ -1,7 +1,7 @@
 import { Router } from "express";
 
-const ordensRouter = Router();
+const ordersRouter = Router();
 
-ordensRouter.post("/customers", validateCustomers(customersSchema), postCustomers);
+ordersRouter.post("/orders", );
 
-export default ordensRouter;
+export default ordersRouter;
