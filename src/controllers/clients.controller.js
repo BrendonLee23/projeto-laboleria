@@ -22,7 +22,10 @@ export async function createClient(req, res) {
 
         // Aqui você pode inserir as informações do novo cliente no banco de dados, se necessário
         await db.query(`INSERT INTO clients (name, address, phone) VALUES ($1, $2, $3)`, [name, address, phone]);
-        res.sendStatus(201);
+        
+        const clientes = await db.query(`SELECT * FROM clients`)
+        res.status(201).json(clientes.rows);
+        /* res.sendStatus(201); */
     } catch (err) {
         res.status(500).send(err.message);
     }

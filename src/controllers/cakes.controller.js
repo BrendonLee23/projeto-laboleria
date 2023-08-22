@@ -36,9 +36,10 @@ export async function postCakes(req, res) {
     // Criar um novo tipo de bolo com as informações fornecidas
     // Salvar o novo tipo de bolo no banco de dados
     await db.query(`INSERT INTO cakes (name, price, image, description) VALUES ($1, $2, $3, $4)`, [name, price, image, description]);
-    const cakes = await db.query(`SELECT * FROM cakes`)
 
+    const cakes = await db.query(`SELECT * FROM cakes`)
     res.status(201).json(cakes.rows);
+    /* res.sendStatus(201); */
 
     } catch (err) {
     res.status(500).send(err.message);

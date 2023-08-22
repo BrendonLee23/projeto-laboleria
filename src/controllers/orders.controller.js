@@ -1,6 +1,53 @@
 import { db } from "../database/database.connection.js";
 
 
+export async function createOrder(req, res) {
+    const { clientId, cakeId, quantity, totalPrice } = req.body;
+
+    try {
+
+        
+        const clientExists = await db.query(`SELECT * FROM clients WHERE id=$1`, [clientId])
+        if (clientExists.rows.length <= 0) {
+            return res.status(404).send("The customer does not exist");
+        }
+        const cakeExists = await db.query(`SELECT * FROM cakes WHERE id=$1`, [cakeId])
+        if (cakeExists.rows.length <= 0) {
+            return res.status(404).send("The cake does not exist");
+        }
+        // Validar se quantity é um número inteiro entre 1 e 4
+        if (!Number.isInteger(quantity) || quantity < 1 || quantity > 4) {
+            return res.status(400).send("Invalid quantity");
+        }
+
+        const cake = cakeExists.rows[0]; // Acessar o primeiro elemento da matriz
+        const valorBolo = cake.price;
+
+
+        // Calcular o valor total do pedido
+        const valorTotalPedido = quantity * valorBolo;
+
+        // Verificar se o valor total do pedido corresponde ao totalPrice
+        if (valorTotalPedido !== totalPrice) {
+            return res.status(400).send("Total price does not match calculated value");
+        }
+
+        // Aqui você pode inserir as informações da nova order no banco de dados
+        await db.query(`INSERT INTO orders ("clientId", "cakeId", quantity, "totalPrice") VALUES ($1, $2, $3, $4)`, [clientId, cakeId, quantity, totalPrice]);
+        /* res.sendStatus(201); */
+        const orders = await db.query(`SELECT * FROM orders`)
+        res.status(201).json(orders.rows);
+
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+}
+
+
+
+
+
+
 export async function getCustomers(req, res) {
     try {
         const customers = await db.query(`SELECT id, name, phone, cpf, to_char(birthday, 'YYYY-MM-DD') as birthday FROM customers;`)
