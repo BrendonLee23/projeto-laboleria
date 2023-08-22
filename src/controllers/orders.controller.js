@@ -36,68 +36,195 @@ export async function createOrder(req, res) {
         await db.query(`INSERT INTO orders ("clientId", "cakeId", quantity, "totalPrice") VALUES ($1, $2, $3, $4)`, [clientId, cakeId, quantity, totalPrice]);
         /* res.sendStatus(201); */
         const orders = await db.query(`SELECT * FROM orders`)
-        res.status(201).json(orders.rows);
+        const formattedOrders = orders.rows.map(order => {
+            return {
+                id: order.id,
+                clientId: order.clientId,
+                cakeId: order.cakeId,
+                quantity: order.quantity,
+                totalPrice: order.totalPrice,
+                createdAt: order.createdAt.toISOString().substr(0, 10) // Formatar a data
+            };
+        });
+        res.status(201).json(formattedOrders);
 
     } catch (err) {
         res.status(500).send(err.message);
     }
 }
 
-
-
-
-
-
-export async function getCustomers(req, res) {
+export async function getOrders(req, res) {
     try {
-        const customers = await db.query(`SELECT id, name, phone, cpf, to_char(birthday, 'YYYY-MM-DD') as birthday FROM customers;`)
-        res.send(customers.rows)
-    } catch (err) {
-        res.status(500).send(err.message)
-    }
-}
+        let query = `
+            SELECT
+                orders.id AS "orderId",
+                orders."createdAt",
+                orders.quantity,
+                orders."totalPrice",
+                clients.id AS "clientId",
+                clients.name AS "clientName",
+                clients.address AS "clientAddress",
+                clients.phone AS "clientPhone",
+                cakes.id AS "cakeId",
+                cakes.name AS "cakeName",
+                cakes.price AS "cakePrice",
+                cakes.description AS "cakeDescription",
+                cakes.image AS "cakeImage"
+            FROM
+                orders
+                JOIN clients ON orders."clientId" = clients.id
+                JOIN cakes ON orders."cakeId" = cakes.id
+        `;
 
-export async function getCustomersById(req, res) {
-    const { id } = req.params
-    try {
-        const customer = await db.query(`SELECT id, name, phone, cpf, to_char(birthday, 'YYYY-MM-DD') as birthday FROM customers WHERE id=${id};`)
-        if (!customer.rows[0]) return res.sendStatus(404);
-        res.send(customer.rows[0])
-    } catch (err) {
-        res.status(500).send(err.message)
-    }
-}
-
-export async function postCustomers(req, res) {
-    const { name, phone, cpf, birthday } = req.body;
-
-    try {
-        const cpfJaExiste = await db.query(`SELECT FROM customers WHERE cpf = $1`, [cpf])
-        if (cpfJaExiste.rows.length > 0) {
-            return res.status(409).send("Erro ao Cadastrar. CPF já cadastado")
+        const { date } = req.query;
+        if (date) {
+            query += ` WHERE DATE(orders."createdAt") = $1`;
         }
-        const customer = await db.query(`INSERT INTO customers (name, phone, cpf, birthday) VALUES ($1, $2, $3, $4)`, [name, phone, cpf, birthday]);
-        res.sendStatus(201)
-    } catch (err) {
-        res.status(500).send(err.message)
-    }
-}
 
-export async function editCustomers(req, res) {
-    const { id } = req.params;
-    const { name, phone, cpf, birthday } = req.body;
+        const orders = await db.query(query, [date]);
 
-    try {
-        const users = await db.query(`SELECT * FROM customers`);
-        const cpfValidate  = users.rows.find(c => c.cpf === cpf);
-        if(cpfValidate){
-            if(cpfValidate.id != id){
-                return res.status(409).send("Erro ao Cadastrar. CPF já cadastrado");
-            }
-        } 
-        await db.query(`UPDATE customers SET name='${name}', phone='${phone}', cpf='${cpf}', birthday='${birthday}' WHERE id=$1;`, [id]);
-        res.sendStatus(200);
+        if (orders.rows.length === 0) {
+            return res.status(404).send([]);
+        }
+
+        const formattedOrders = orders.rows.map(order => {
+            return {
+                client: {
+                    id: order.clientId,
+                    name: order.clientName,
+                    address: order.clientAddress,
+                    phone: order.clientPhone
+                },
+                cake: {
+                    id: order.cakeId,
+                    name: order.cakeName,
+                    price: order.cakePrice,
+                    description: order.cakeDescription,
+                    image: order.cakeImage
+                },
+                orderId: order.orderId,
+                createdAt: order.createdAt,
+                quantity: order.quantity,
+                totalPrice: order.totalPrice
+            };
+        });
+
+        res.status(200).json(formattedOrders);
+
     } catch (err) {
         res.status(500).send(err.message);
     }
 }
+
+export async function getOrderById(req, res) {
+
+    const orderId = req.params.id; // Obtém o id do pedido da URL
+
+    try {
+        const query = `
+            SELECT
+                orders.id AS "orderId",
+                orders."createdAt",
+                orders.quantity,
+                orders."totalPrice",
+                clients.id AS "clientId",
+                clients.name AS "clientName",
+                clients.address AS "clientAddress",
+                clients.phone AS "clientPhone",
+                cakes.id AS "cakeId",
+                cakes.name AS "cakeName",
+                cakes.price AS "cakePrice",
+                cakes.description AS "cakeDescription",
+                cakes.image AS "cakeImage"
+            FROM
+                orders
+                JOIN clients ON orders."clientId" = clients.id
+                JOIN cakes ON orders."cakeId" = cakes.id
+            WHERE
+                orders.id = $1
+        `;
+
+        const result = await db.query(query, [orderId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).send("Order not found");
+        }
+
+        const order = result.rows[0];
+
+        const formattedOrder = {
+            client: {
+                id: order.clientId,
+                name: order.clientName,
+                address: order.clientAddress,
+                phone: order.clientPhone
+            },
+            cake: {
+                id: order.cakeId,
+                name: order.cakeName,
+                price: order.cakePrice,
+                description: order.cakeDescription,
+                image: order.cakeImage
+            },
+            orderId: order.orderId,
+            createdAt: order.createdAt,
+            quantity: order.quantity,
+            totalPrice: order.totalPrice
+        };
+
+        res.status(200).json(formattedOrder);
+
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+}
+
+export async function ordersByClient(req, res) {
+
+    const clientId = req.params.id; // Obtém o id do cliente da URL
+
+    try {
+        const clientExists = await db.query(`SELECT * FROM clients WHERE id = $1`, [clientId]);
+
+        if (clientExists.rows.length === 0) {
+            return res.status(404).send("Client not found");
+        }
+
+        const query = `
+            SELECT
+                orders.id AS "orderId",
+                orders.quantity,
+                orders."createdAt",
+                orders."totalPrice",
+                cakes.name AS "cakeName"
+            FROM
+                orders
+                JOIN cakes ON orders."cakeId" = cakes.id
+            WHERE
+                orders."clientId" = $1
+        `;
+
+        const orders = await db.query(query, [clientId]);
+
+        if (orders.rows.length === 0) {
+            return res.status(200).send("No orders registered for this client");
+        }
+
+        const formattedOrders = orders.rows.map(order => {
+            return {
+                orderId: order.orderId,
+                quantity: order.quantity,
+                createdAt: order.createdAt,
+                totalPrice: order.totalPrice,
+                cakeName: order.cakeName
+            };
+        });
+
+        res.status(200).json(formattedOrders);
+
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+}
+
+
