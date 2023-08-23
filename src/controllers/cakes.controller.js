@@ -1,9 +1,9 @@
-import { insertCake, verifyCake } from "../repositories/cakes.repository.js";
+import { insertCake, verifyCake, verifyFlavour } from "../repositories/cakes.repository.js";
 
 // Função Testada e Finalizada.
 export async function postCakes(req, res) {
 
-    const { name, price, image, description } = req.body;
+    const { name, price, image, description, flavourId } = req.body;
     
     try {
     //Verificar se o nome do bolo já existe
@@ -33,9 +33,17 @@ export async function postCakes(req, res) {
         return res.status(400).send("Image is required");
     }
 
+    //BÔNUS ********************************
+
+    const flavourExists = await verifyFlavour(flavourId)
+    if (flavourExists.rowCount <= 0) {
+        return res.status(404).send("Invalid flavourId");
+    }
+    //BÔNUS ********************************
+
     // Criar um novo tipo de bolo com as informações fornecidas
     // Salvar o novo tipo de bolo no banco de dados
-    await insertCake(name, price, image, description)
+    await insertCake(name, price, image, description, flavourId)
     res.sendStatus(201);
 
     } catch (err) {

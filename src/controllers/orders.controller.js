@@ -1,16 +1,16 @@
-import orderRepository from "../repositories/orders.repository.js";
+import orderRepository  from "../repositories/orders.repository.js";
 
 // Função Testada e Finalizada.
 export async function createOrder(req, res) {
     const { clientId, cakeId, quantity, totalPrice } = req.body;
-
+    console.log(clientId)
     try {
-        const clientExists = await orderRepository.verifyClient(req.body)
-        console.log(clientExists.rows);
+        const clientExists = await orderRepository.verifyClient(clientId)
+        
         if (clientExists.rowCount <= 0) {
             return res.status(404).send("The customer does not exist");
         }
-        const cakeExists = await orderRepository.verifyCake(req.body)
+        const cakeExists = await orderRepository.verifyCake(cakeId)
         if (cakeExists.rowCount <= 0) {
             return res.status(404).send("The cake does not exist");
         }
@@ -36,6 +36,7 @@ export async function createOrder(req, res) {
         res.sendStatus(201);
 
     } catch (err) {
+        console.log(err);
         res.status(500).send(err.message);
     }
 }
@@ -46,8 +47,8 @@ export async function getOrders(req, res) {
 
     try {
         const orders = await orderRepository.joinData(date)
-
-        if (orders.rows.length === 0) {
+        console.log(orders.rows)
+        if (orders.rowCount === 0) {
             return res.status(404).send([]);
         }
 
@@ -64,12 +65,14 @@ export async function getOrders(req, res) {
                     name: order.cakeName,
                     price: order.cakePrice,
                     description: order.cakeDescription,
-                    image: order.cakeImage
+                    image: order.cakeImage,
+                    flavour: order.flavourName 
                 },
                 orderId: order.orderId,
                 createdAt: order.createdAt,
                 quantity: order.quantity,
-                totalPrice: order.totalPrice
+                totalPrice: order.totalPrice,
+                isDelivered: order.isDelivered
             };
         });
 
@@ -104,12 +107,14 @@ export async function getOrderById(req, res) {
                 name: order.cakeName,
                 price: order.cakePrice,
                 description: order.cakeDescription,
-                image: order.cakeImage
+                image: order.cakeImage,
+                flavour: order.flavourName 
             },
             orderId: order.orderId,
             createdAt: order.createdAt,
             quantity: order.quantity,
-            totalPrice: order.totalPrice
+            totalPrice: order.totalPrice,
+            isDelivered: order.isDelivered
         };
 
         res.status(200).json(formattedOrder);
@@ -142,7 +147,9 @@ export async function ordersByClient(req, res) {
                 quantity: order.quantity,
                 createdAt: order.createdAt,
                 totalPrice: order.totalPrice,
-                cakeName: order.cakeName
+                cakeName: order.cakeName,
+                flavourName: order.flavourName,
+                isDelivered: order.isDelivered
             };
         });
 
@@ -152,3 +159,4 @@ export async function ordersByClient(req, res) {
         res.status(500).send(err.message);
     }
 }
+
